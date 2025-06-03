@@ -14,4 +14,5 @@ void device_task_init()
     // setupAutoencoder();
     // setupGRUModel();
     // ai_esp32_task_init();
+    //AI_Task_Init();
 }

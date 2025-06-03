@@ -3,7 +3,7 @@
 #include <ArduinoJson.h>
 #include <math.h>
 
-const char *server_host = "192.168.2.4";
+const char *server_host = "192.168.1.15";
 const uint16_t server_port = 5000;
 
 SocketIOclient socketIO;
@@ -15,39 +15,30 @@ TaskHandle_t socket_loop_handle = NULL;
 TaskHandle_t sensor_data_handle = NULL;
 bool ai_tasks_running = false;
 
+float temperature, humidity;
+
 int currentIndex = 0; // Gửi lần lượt từng dòng
 
-float ph_base = 6.5, ph_slope = 0.002;
-float do_base = 5.0, do_slope = -0.0015;
-float temp_base = 27.0, temp_slope = 0.005;
+// Cơ sở dữ liệu giả cho temperature và humidity
+float temp_base = 30.0, temp_slope = 0.01;
+float humi_base = 60.0, humi_slope = -0.005;
 
-// ======= Sinh 1 dòng dữ liệu cảm biến giả =======
-void generateSingleSensorData(float *dataRow)
+// ======= Sinh dữ liệu temperature và humidity giả =======
+void generateSensorData(float *temperature, float *humidity)
 {
-  // Tăng giảm tuyến tính có dao động nhỏ
-  float ph = ph_base + ph_slope * currentIndex + sin(currentIndex * 0.1) * 0.1;
-  float do_ = do_base + do_slope * currentIndex + cos(currentIndex * 0.1) * 0.15;
-  float temp = temp_base + temp_slope * currentIndex + sin(currentIndex * 0.07) * 0.2;
+  // Tạo dữ liệu nhiệt độ và độ ẩm với biến động tự nhiên
+  *temperature = temp_base + temp_slope * currentIndex + sin(currentIndex * 0.1) * 2.0 + cos(currentIndex * 0.05) * 1.0;
+  *humidity = humi_base + humi_slope * currentIndex + cos(currentIndex * 0.12) * 3.0 + sin(currentIndex * 0.08) * 2.0;
 
-  // Giới hạn để giữ trong khoảng hợp lý
-  ph = constrain(ph, 6.0, 7.0);
-  do_ = constrain(do_, 4.5, 5.5);
-  temp = constrain(temp, 26.0, 28.0);
+  // Giới hạn trong khoảng hợp lý
+  *temperature = constrain(*temperature, 20.0, 35.0);
+  *humidity = constrain(*humidity, 40.0, 80.0);
 
-  // Gán giá trị vào mảng
-  dataRow[0] = ph;
-  dataRow[1] = do_;
-  dataRow[2] = temp;
-
-  // Các đặc trưng thời gian dạng sin/cos
-  dataRow[3] = sin(currentIndex * 0.1);
-  dataRow[4] = cos(currentIndex * 0.1);
-  dataRow[5] = sin(currentIndex * 0.2);
-  dataRow[6] = cos(currentIndex * 0.2);
+  currentIndex++;
 }
 
-// ======= Hàm mới: Gửi dữ liệu cảm biến thực =======
-void AI_Task_SendSensorData(SensorData &data)
+// ======= Hàm gửi dữ liệu cảm biến thực =======
+void AI_Task_SendSensorData()
 {
   if (!connected)
   {
@@ -55,27 +46,29 @@ void AI_Task_SendSensorData(SensorData &data)
     return;
   }
 
-  // Tạo JSON mảng cho dữ liệu
-  DynamicJsonDocument doc(512);
+  // Lấy dữ liệu cảm biến thực
+  // Giả sử bạn có cảm biến nhiệt độ và độ ẩm
+  // Nếu không có, bạn có thể map từ các cảm biến khác hoặc dùng dữ liệu giả
+
+  // Phương án 1: Nếu có cảm biến nhiệt độ và độ ẩm thực
+  temperature = getTemperature();
+  humidity = getHumidity();
+
+  // Phương án 2: Sử dụng dữ liệu giả (cho demo)
+  // generateSensorData(&temperature, &humidity);
+
+  // Phương án 3: Map từ các cảm biến hiện có (ví dụ)
+  /*
+  float temp_sensor = data.get_latest_data(MEASURE_TEMP);
+  float ph_sensor = data.get_latest_data(MEASURE_PH);
+  */
+
+  // Tạo JSON array theo format server mong đợi: [temperature, humidity]
+  DynamicJsonDocument doc(256);
   JsonArray arr = doc.to<JsonArray>();
 
-  // Định dạng dữ liệu theo định dạng mong muốn của server
-  // Giả sử server cần mảng 7 giá trị [pH, DO, temp, sin1, cos1, sin2, cos2]
-  float ph = data.get_latest_data(MEASURE_PH);
-  float do_ = data.get_latest_data(MEASURE_DO);
-  float temp = data.get_latest_data(MEASURE_TEMP);
-
-  // Thêm giá trị pH, DO, nhiệt độ
-  arr.add(ph);
-  arr.add(do_);
-  arr.add(temp);
-
-  // Thêm các đặc trưng thời gian dạng sin/cos như trong dữ liệu giả
-  int currentTime = millis() / 1000; // Thời gian hiện tại (giây)
-  arr.add(sin(currentTime * 0.1));
-  arr.add(cos(currentTime * 0.1));
-  arr.add(sin(currentTime * 0.2));
-  arr.add(cos(currentTime * 0.2));
+  arr.add(temperature);
+  arr.add(humidity);
 
   String payload;
   serializeJson(doc, payload);
@@ -83,12 +76,12 @@ void AI_Task_SendSensorData(SensorData &data)
   String message = "[\"sensor_data\"," + payload + "]";
   socketIO.sendEVENT(message);
 
-  Serial.printf("✅ Đã gửi dữ liệu cảm biến thực: pH=%.2f, DO=%.2f, Temp=%.2f\n",
-                ph, do_, temp);
+  Serial.printf("✅ Đã gửi dữ liệu: Temp=%.2f°C, Humidity=%.2f%%\n",
+                temperature, humidity);
 }
 
-// ======= Gửi 1 dòng dữ liệu cảm biến =======
-void sendSingleSensorData()
+// ======= Gửi dữ liệu test =======
+void sendTestSensorData()
 {
   if (!connected)
   {
@@ -96,15 +89,14 @@ void sendSingleSensorData()
     return;
   }
 
-  float row[7];
-  generateSingleSensorData(row);
+  float temperature, humidity;
+  generateSensorData(&temperature, &humidity);
 
-  DynamicJsonDocument doc(512);
+  DynamicJsonDocument doc(256);
   JsonArray arr = doc.to<JsonArray>();
-  for (int j = 0; j < 7; j++)
-  {
-    arr.add(row[j]);
-  }
+
+  arr.add(temperature);
+  arr.add(humidity);
 
   String payload;
   serializeJson(doc, payload);
@@ -112,9 +104,8 @@ void sendSingleSensorData()
   String message = "[\"sensor_data\"," + payload + "]";
   socketIO.sendEVENT(message);
 
-  Serial.printf("✅ Đã gửi dòng %d: %s\n", currentIndex, message.c_str());
-
-  currentIndex = (currentIndex + 1) % 6; // Quay vòng sau 6 dòng
+  Serial.printf("✅ Test data #%d: Temp=%.2f°C, Humidity=%.2f%%\n",
+                currentIndex, temperature, humidity);
 }
 
 // ======= Xử lý phản hồi từ server =======
@@ -135,38 +126,78 @@ void socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_t length)
 
   case sIOtype_EVENT:
   {
-    Serial.println("📨 Nhận phản hồi:");
+    Serial.println("📨 Nhận phản hồi từ server:");
+    Serial.printf("Raw payload: %.*s\n", length, (char *)payload);
+
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, payload, length);
+
     if (!error)
     {
       JsonArray arr = doc.as<JsonArray>();
-      if (arr[0] == "prediction")
+      String eventName = arr[0];
+
+      Serial.printf("Event: %s\n", eventName.c_str());
+
+      if (eventName == "prediction")
       {
         JsonObject pred = arr[1];
-        float ph = pred["pH"];
-        float do_ = pred["DO"];
-        float temp = pred["Temperature"];
-        Serial.printf("📡 Dự đoán: pH=%.2f, DO=%.2f, Temp=%.2f\n", ph, do_, temp);
+
+        // Server trả về predicted_temperature và predicted_humidity
+        float pred_temp = pred["predicted_temperature"];
+        float pred_humi = pred["predicted_humidity"];
+        String pred_status = pred["predicted_status"];
+
+        float curr_temp = pred["current_temperature"];
+        float curr_humi = pred["current_humidity"];
+        String curr_status = pred["current_status"];
+
+        Serial.println("=== DỰ ĐOÁN AI ===");
+        Serial.printf("🔮 Dự đoán: Temp=%.2f°C, Humidity=%.2f%%, Status=%s\n",
+                      pred_temp, pred_humi, pred_status.c_str());
+        Serial.printf("📊 Hiện tại: Temp=%.2f°C, Humidity=%.2f%%, Status=%s\n",
+                      curr_temp, curr_humi, curr_status.c_str());
+        Serial.println("==================");
 
         // Tạo JSON để gửi telemetry
-        DynamicJsonDocument telemetryDoc(256);
-        telemetryDoc["pH_predict"] = ph;
-        telemetryDoc["DO_predict"] = do_;
-        telemetryDoc["temp_predict"] = temp;
+        DynamicJsonDocument telemetryDoc(512);
+        telemetryDoc["predicted_temperature"] = pred_temp;
+        telemetryDoc["predicted_humidity"] = pred_humi;
 
         String jsonStr;
         serializeJson(telemetryDoc, jsonStr);
 
-        // Gửi dữ liệu lên telemetry
+        // Gửi dữ liệu lên telemetry (nếu có hàm này)
         sendTelemetry(jsonStr);
+
+        Serial.printf("📤 Telemetry data: %s\n", jsonStr.c_str());
       }
+      else if (eventName == "sensor_data_received")
+      {
+        JsonObject data = arr[1];
+        Serial.printf("✅ Server đã nhận: Temp=%.2f°C, Humidity=%.2f%%, Status=%s, Buffer=%d/6\n",
+                      (float)data["temperature"], (float)data["humidity"],
+                      data["status"].as<String>().c_str(), (int)data["buffer_size"]);
+      }
+      else if (eventName == "connect_response")
+      {
+        Serial.println("✅ Server xác nhận kết nối thành công");
+      }
+      else if (eventName == "error")
+      {
+        String errorMsg = arr[1]["message"];
+        Serial.printf("❌ Server error: %s\n", errorMsg.c_str());
+      }
+    }
+    else
+    {
+      Serial.printf("❌ JSON parse error: %s\n", error.c_str());
     }
     break;
   }
 
   case sIOtype_ERROR:
-    Serial.printf("❌ SocketIO Error [%u bytes]\n", length);
+    Serial.printf("❌ SocketIO Error [%u bytes]: %.*s\n", length, length, (char *)payload);
     break;
 
   default:
@@ -178,8 +209,10 @@ void socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_t length)
 // ======= Task khởi tạo socket =======
 void socket_init_task(void *pvParameters)
 {
+  Serial.println("🔄 Đang khởi tạo SocketIO connection...");
   socketIO.begin(server_host, server_port, "/socket.io/?EIO=4");
   socketIO.onEvent(socketIOEvent);
+  Serial.println("✅ SocketIO đã được khởi tạo");
 
   vTaskDelete(NULL);
 }
@@ -187,6 +220,8 @@ void socket_init_task(void *pvParameters)
 // ======= Task xử lý socket =======
 void socket_loop_task(void *pvParameters)
 {
+  Serial.println("🔄 Socket loop task đã bắt đầu");
+
   while (true)
   {
     socketIO.loop();
@@ -197,15 +232,24 @@ void socket_loop_task(void *pvParameters)
 // ======= Task gửi dữ liệu cảm biến =======
 void sensor_data_task(void *pvParameters)
 {
-  const TickType_t xDelay = 5000 / portTICK_PERIOD_MS; // Gửi mỗi 5 giây
+  const TickType_t xDelay = 3000 / portTICK_PERIOD_MS; // Gửi mỗi 3 giây
+  Serial.println("🔄 Sensor data task đã bắt đầu");
 
   while (true)
   {
     if (connected)
     {
-      // sendSingleSensorData();
-      AI_Task_SendSensorData(sensorData);
+      // Gửi dữ liệu cảm biến thực
+      AI_Task_SendSensorData();
+
+      // Hoặc gửi dữ liệu test
+      // sendTestSensorData();
     }
+    else
+    {
+      Serial.println("⏳ Đang chờ kết nối tới server...");
+    }
+
     vTaskDelay(xDelay);
   }
 }
@@ -216,11 +260,12 @@ void AI_Task_Init()
   // Kiểm tra nếu các task đã được khởi tạo trước đó
   if (ai_tasks_running)
   {
-    Serial.println("AI tasks đã đang chạy, không cần khởi tạo lại");
+    Serial.println("⚠️ AI tasks đã đang chạy, không cần khởi tạo lại");
     return;
   }
 
-  Serial.println("Khởi tạo các AI tasks...");
+  Serial.println("🚀 Đang khởi tạo AI tasks...");
+  Serial.printf("🌐 Server: %s:%d\n", server_host, server_port);
 
   // Khởi tạo task và lưu handle để có thể dừng sau này
   xTaskCreate(socket_init_task, "Socket_Init_Task", 4096, NULL, 1, &socket_init_handle);
@@ -228,7 +273,7 @@ void AI_Task_Init()
   xTaskCreate(sensor_data_task, "Sensor_Data_Task", 4096, NULL, 1, &sensor_data_handle);
 
   ai_tasks_running = true;
-  Serial.println("Đã khởi tạo xong các AI tasks");
+  Serial.println("✅ Đã khởi tạo xong các AI tasks");
 }
 
 // ======= Dừng các AI task =======
@@ -236,17 +281,18 @@ void AI_Task_Stop()
 {
   if (!ai_tasks_running)
   {
-    Serial.println("AI tasks không chạy, không cần dừng");
+    Serial.println("⚠️ AI tasks không chạy, không cần dừng");
     return;
   }
 
-  Serial.println("Đang dừng các AI tasks...");
+  Serial.println("🛑 Đang dừng các AI tasks...");
 
   // Dừng kết nối socket trước khi xóa task
   if (connected)
   {
     socketIO.disconnect();
     connected = false;
+    Serial.println("🔌 Đã ngắt kết nối SocketIO");
     // Đợi một chút để đảm bảo socket đã xử lý việc ngắt kết nối
     delay(100);
   }
@@ -256,23 +302,53 @@ void AI_Task_Stop()
   {
     vTaskDelete(socket_init_handle);
     socket_init_handle = NULL;
-    Serial.println("- Đã dừng Socket_Init_Task");
+    Serial.println("✅ Đã dừng Socket_Init_Task");
   }
 
   if (socket_loop_handle != NULL)
   {
     vTaskDelete(socket_loop_handle);
     socket_loop_handle = NULL;
-    Serial.println("- Đã dừng Socket_Loop_Task");
+    Serial.println("✅ Đã dừng Socket_Loop_Task");
   }
 
   if (sensor_data_handle != NULL)
   {
     vTaskDelete(sensor_data_handle);
     sensor_data_handle = NULL;
-    Serial.println("- Đã dừng Sensor_Data_Task");
+    Serial.println("✅ Đã dừng Sensor_Data_Task");
   }
 
   ai_tasks_running = false;
-  Serial.println("Đã dừng tất cả AI tasks");
+  Serial.println("✅ Đã dừng tất cả AI tasks");
+}
+
+// ======= Hàm tiện ích để test =======
+void AI_Task_SendTestData()
+{
+  if (connected)
+  {
+    sendTestSensorData();
+  }
+  else
+  {
+    Serial.println("⚠️ Chưa kết nối tới server, không thể gửi test data");
+  }
+}
+
+// ======= Kiểm tra trạng thái kết nối =======
+bool AI_Task_IsConnected()
+{
+  return connected;
+}
+
+// ======= Lấy thông tin server =======
+void AI_Task_GetServerInfo()
+{
+  Serial.println("=== THÔNG TIN SERVER ===");
+  Serial.printf("Host: %s\n", server_host);
+  Serial.printf("Port: %d\n", server_port);
+  Serial.printf("Connected: %s\n", connected ? "Yes" : "No");
+  Serial.printf("Tasks running: %s\n", ai_tasks_running ? "Yes" : "No");
+  Serial.println("========================");
 }

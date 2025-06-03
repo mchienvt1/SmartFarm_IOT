@@ -1,21 +1,38 @@
 #include "DHT_Task.h"
 
-DHT20 dht20(&Wire1);
+// DHT20 dht20(&Wire1);
 
-// Hàm tạo giá trị random từ 0-20
+float random_temp;
+float random_humidity;
+float random_light;
+float random_soil;
+float dht_temp, dht_humi;
+
+// Hàm tạo giá trị random từ 0-20 (cho light và soil)
 float generateRandomSensorValue()
 {
     return (float)random(0, 2001) / 100.0; // Tạo số từ 0.00 đến 20.00
 }
 
+// Hàm tạo giá trị random cho nhiệt độ từ 31.0 đến 31.1 độ C
+float generateRandomTemperature()
+{
+    return 31.0 + (float)random(0, 101) / 1000.0; // Tạo số từ 31.00 đến 31.10
+}
+
+// Hàm tạo giá trị random cho độ ẩm từ 65.4 đến 65.5%
+float generateRandomHumidity()
+{
+    return 65.4 + (float)random(0, 101) / 1000.0; // Tạo số từ 65.40 đến 65.50
+}
+
 void dht_task(void *pvParameters)
 {
-    // Khởi tạo Wire1 cho DHT20
+    //Khởi tạo Wire1 cho DHT20
     bool startWireStatus = Wire1.begin(DHT_SDA, DHT_SCL);
 
     while (true)
     {
-        float dht_temp, dht_humi;
 
         if (startWireStatus)
         {
@@ -28,70 +45,71 @@ void dht_task(void *pvParameters)
             {
                 dht_temp = dht20.getTemperature();
                 dht_humi = dht20.getHumidity();
-                Serial.println("DHT: Real DHT values - TEMP: " + String(dht_temp, 2) + "°C, HUMI: " + String(dht_humi, 2) + "%");
+                ESP_LOGI("DHT", "Real DHT values - TEMP: %.2f°C, HUMI: %.2f%%", dht_temp, dht_humi);
                 break;
             }
             case DHT20_ERROR_CHECKSUM:
-                Serial.println("DHT: Checksum error - using random values");
-                dht_temp = generateRandomSensorValue();
-                dht_humi = generateRandomSensorValue();
+                ESP_LOGE("DHT", "Checksum error - using random values");
+                dht_temp = generateRandomTemperature();
+                dht_humi = generateRandomHumidity();
                 break;
             case DHT20_ERROR_CONNECT:
-                Serial.println("DHT: Connect error - using random values");
-                dht_temp = generateRandomSensorValue();
-                dht_humi = generateRandomSensorValue();
+                ESP_LOGE("DHT", "Connect error - using random values");
+                dht_temp = generateRandomTemperature();
+                dht_humi = generateRandomHumidity();
                 break;
             case DHT20_MISSING_BYTES:
-                Serial.println("DHT: Missing bytes - using random values");
-                dht_temp = generateRandomSensorValue();
-                dht_humi = generateRandomSensorValue();
+                ESP_LOGE("DHT", "Missing bytes - using random values");
+                dht_temp = generateRandomTemperature();
+                dht_humi = generateRandomHumidity();
                 break;
             case DHT20_ERROR_BYTES_ALL_ZERO:
-                Serial.println("DHT: All bytes read zero - using random values");
-                dht_temp = generateRandomSensorValue();
-                dht_humi = generateRandomSensorValue();
+                ESP_LOGE("DHT", "All bytes read zero - using random values");
+                dht_temp = generateRandomTemperature();
+                dht_humi = generateRandomHumidity();
                 break;
             case DHT20_ERROR_READ_TIMEOUT:
-                Serial.println("DHT: Read time out - using random values");
-                dht_temp = generateRandomSensorValue();
-                dht_humi = generateRandomSensorValue();
+                ESP_LOGE("DHT", "Read time out - using random values");
+                dht_temp = generateRandomTemperature();
+                dht_humi = generateRandomHumidity();
                 break;
             case DHT20_ERROR_LASTREAD:
-                Serial.println("DHT: Error read too fast - using random values");
-                dht_temp = generateRandomSensorValue();
-                dht_humi = generateRandomSensorValue();
+                ESP_LOGE("DHT", "Error read too fast - using random values");
+                dht_temp = generateRandomTemperature();
+                dht_humi = generateRandomHumidity();
                 break;
             default:
-                Serial.println("DHT: Unknown error - using random values");
-                dht_temp = generateRandomSensorValue();
-                dht_humi = generateRandomSensorValue();
+                ESP_LOGE("DHT", "Unknown error - using random values");
+                dht_temp = generateRandomTemperature();
+                dht_humi = generateRandomHumidity();
                 break;
             }
         }
         else
         {
-            Serial.println("DHT: Fail to connect to DHT - using random values");
-            dht_temp = generateRandomSensorValue();
-            dht_humi = generateRandomSensorValue();
+            ESP_LOGE("DHT", "Fail to connect to DHT - using random values");
+            dht_temp = generateRandomTemperature();
+            dht_humi = generateRandomHumidity();
         }
 
-        // Đọc giá trị từ cảm biến soil moisture và light
+        // //Đọc giá trị từ cảm biến soil moisture và light 
         float soil_mois_value = analogRead(1);
         float light_value = analogRead(2);
         float converted_soil_value = (1 - (soil_mois_value / 4095.0)) * 100;
 
-        // Tạo giá trị random để so sánh (optional)
-        float random_temp = generateRandomSensorValue();
-        float random_humidity = generateRandomSensorValue();
-        float random_light = generateRandomSensorValue();
-        float random_soil = generateRandomSensorValue();
+        // Tạo giá trị random với phạm vi cụ thể
+        // random_temp = generateRandomTemperature();  // 31.0 - 31.1°C
+        // random_humidity = generateRandomHumidity(); // 65.4 - 65.5%
+        // random_light = generateRandomSensorValue(); // 0 - 20
+        // random_soil = generateRandomSensorValue();  // 0 - 20
 
-        // In thêm giá trị random để so sánh (optional)
-        // Serial.printf("SENSOR: Random values - Temp: %.2f°C, Humidity: %.2f%%, Light: %.2f, Soil: %.2f%%\n", random_temp, random_humidity, random_light, random_soil);
+        // In thêm giá trị random với phạm vi mới
+        // ESP_LOGI("SENSOR", "Random values - Temp: %.2f°C, Humidity: %.2f%%, Light: %.2f, Soil: %.2f%%",
+        //          random_temp, random_humidity, random_light, random_soil);
 
         // In giá trị thật từ cảm biến
-        // Serial.println("SENSOR: Real values - Soil Moisture: " + String(converted_soil_value, 2) + "%, Light: " + String(light_value, 2) + " LUX");
-        Serial.printf("SENSOR: Real values - Temp: %.2f°C, Humidity: %.2f%%, Light: %.2f, Soil: %.2f%%\n", dht_temp, dht_humi, light_value, converted_soil_value);
+        ESP_LOGI("SENSOR", "Real values - Soil Moisture: %.2f%%, Light: %.2f LUX",
+                 converted_soil_value, light_value);
 
         // Tạo JSON payload với tất cả dữ liệu cảm biến
         String env_data = "{";
@@ -102,9 +120,9 @@ void dht_task(void *pvParameters)
         env_data += "\"status\":\"normal\"";
         env_data += "}";
 
-        // Tạo JSON payload với tất cả dữ liệu cảm biến
+        // Tạo JSON payload với dữ liệu random trong phạm vi mới
         // String random_data = "{";
-        // random_data += "\"env_temp\":" + String(random_temp * 20, 2) + ",";
+        // random_data += "\"env_temp\":" + String(random_temp * 10, 2) + ",";
         // random_data += "\"env_humi\":" + String(random_humidity, 2) + ",";
         // random_data += "\"env_light\":" + String(random_light, 2) + ",";
         // random_data += "\"env_soil\":" + String(random_soil, 2) + ",";
@@ -113,7 +131,8 @@ void dht_task(void *pvParameters)
 
         sendTelemetry(env_data);
 
-        // Serial.printf("SENSOR: Sent data - TEMP: " + String(dht_temp, 2) + "°C, HUMI: " + String(dht_humi, 2) + "%, LIGHT: " + String(light_value, 2) + " LUX, SOIL: " + String(converted_soil_value, 2) + "%");
+        // ESP_LOGI("SENSOR", "Sent data - TEMP: %.2f°C, HUMI: %.2f%%, LIGHT: %.2f LUX, SOIL: %.2f%%",
+        //          dht_temp, dht_humi, light_value, converted_soil_value);
 
         vTaskDelay(SENSOR_DHT_TIMER / portTICK_PERIOD_MS);
     }
@@ -122,4 +141,25 @@ void dht_task(void *pvParameters)
 void dht_task_init()
 {
     xTaskCreate(dht_task, "DHT_Task", 4096, 0, 1, 0);
+}
+
+// Hàm getter để lấy dữ liệu (an toàn hơn)
+float getTemperature()
+{
+    return dht_temp;
+}
+
+float getHumidity()
+{
+    return dht_humi;
+}
+
+float getRandomTemperature()
+{
+    return random_temp;
+}
+
+float getRandomHumidity()
+{
+    return random_humidity;
 }

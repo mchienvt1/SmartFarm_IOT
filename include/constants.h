@@ -88,7 +88,7 @@ constexpr uint8_t SENSOR_DATA_COUNT = 7;
 #define INSANELY_LONG_TIMER 60000
 #define SENSOR_ISX_PROCESS_TIMER 1000
 #define SENSOR_ISX_READ_WRITE_TIMER 20
-#define SENSOR_DHT_TIMER 5000
+#define SENSOR_DHT_TIMER 3000
 #define SENSOR_CLEAR_TIMEOUT 10
 #define SENSOR_DATA_PROCESS_TIME 10000
 
@@ -98,8 +98,8 @@ constexpr uint8_t SENSOR_DATA_COUNT = 7;
 #define GPS_LONGITUDE "longitude"
 
 /* WiFi Credentials */
-#define WIFI_SSID "N14"
-#define WIFI_PASSWORD "28092021"
+#define WIFI_SSID "Si Dep Trai"
+#define WIFI_PASSWORD "101219691969"
 
 /* ThingsBoard Credentials */
 #define THINGSBOARD_SERVER "app.coreiot.io"

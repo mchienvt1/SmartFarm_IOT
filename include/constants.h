@@ -98,8 +98,8 @@ constexpr uint8_t SENSOR_DATA_COUNT = 7;
 #define GPS_LONGITUDE "longitude"
 
 /* WiFi Credentials */
-#define WIFI_SSID "Si Dep Trai"
-#define WIFI_PASSWORD "101219691969"
+#define WIFI_SSID "BiBo"
+#define WIFI_PASSWORD "trunghieu3868"
 
 /* ThingsBoard Credentials */
 #define THINGSBOARD_SERVER "app.coreiot.io"

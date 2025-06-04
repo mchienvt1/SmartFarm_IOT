@@ -3,7 +3,7 @@
 #include <ArduinoJson.h>
 #include <math.h>
 
-const char *server_host = "192.168.1.15";
+const char *server_host = "192.168.1.8";
 const uint16_t server_port = 5000;
 
 SocketIOclient socketIO;
@@ -90,7 +90,7 @@ void sendTestSensorData()
   }
 
   float temperature, humidity;
-  generateSensorData(&temperature, &humidity);
+  //generateSensorData(&temperature, &humidity);
 
   DynamicJsonDocument doc(256);
   JsonArray arr = doc.to<JsonArray>();

@@ -10,7 +10,8 @@ void dht_task(void *pvParameters);
 float getTemperature();
 
 float getHumidity();
-
+float getSoilValue();
+float getLightValue();
 float getRandomTemperature();
 
 float getRandomHumidity();

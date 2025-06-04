@@ -27,6 +27,7 @@
 #include "SPIFFS.h"
 #include "DHT20.h"
 #include "HardwareSerial.h"
+#include "LiquidCrystal_I2C.h"
 // #include "SoftwareSerial.h"
 #include "TinyGPSPlus.h"
 #include "Adafruit_NeoPixel.h"

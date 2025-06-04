@@ -1,12 +1,12 @@
 #include "DHT_Task.h"
 
-// DHT20 dht20(&Wire1);
+DHT20 dht20(&Wire);
 
 float random_temp;
 float random_humidity;
 float random_light;
 float random_soil;
-float dht_temp, dht_humi;
+float dht_temp, dht_humi,light_value,soil_value;
 
 // Hàm tạo giá trị random từ 0-20 (cho light và soil)
 float generateRandomSensorValue()
@@ -28,8 +28,8 @@ float generateRandomHumidity()
 
 void dht_task(void *pvParameters)
 {
-    //Khởi tạo Wire1 cho DHT20
-    bool startWireStatus = Wire1.begin(DHT_SDA, DHT_SCL);
+    //Khởi tạo Wire cho DHT20
+    bool startWireStatus = Wire.begin(DHT_SDA, DHT_SCL);
 
     while (true)
     {
@@ -94,8 +94,8 @@ void dht_task(void *pvParameters)
 
         // //Đọc giá trị từ cảm biến soil moisture và light 
         float soil_mois_value = analogRead(1);
-        float light_value = analogRead(2);
-        float converted_soil_value = (1 - (soil_mois_value / 4095.0)) * 100;
+        light_value = analogRead(2);
+        float soil_value = (1 - (soil_mois_value / 4095.0)) * 100;
 
         // Tạo giá trị random với phạm vi cụ thể
         // random_temp = generateRandomTemperature();  // 31.0 - 31.1°C
@@ -109,14 +109,14 @@ void dht_task(void *pvParameters)
 
         // In giá trị thật từ cảm biến
         ESP_LOGI("SENSOR", "Real values - Soil Moisture: %.2f%%, Light: %.2f LUX",
-                 converted_soil_value, light_value);
+                 soil_value, light_value);
 
         // Tạo JSON payload với tất cả dữ liệu cảm biến
         String env_data = "{";
         env_data += "\"env_temp\":" + String(dht_temp, 2) + ",";
         env_data += "\"env_humi\":" + String(dht_humi, 2) + ",";
         env_data += "\"env_light\":" + String(light_value, 2) + ",";
-        env_data += "\"env_soil\":" + String(converted_soil_value, 2) + ",";
+        env_data += "\"env_soil\":" + String(soil_value, 2) + ",";
         env_data += "\"status\":\"normal\"";
         env_data += "}";
 
@@ -152,6 +152,14 @@ float getTemperature()
 float getHumidity()
 {
     return dht_humi;
+}
+float getSoilValue()
+{
+    return soil_value;
+}
+float getLightValue()
+{
+    return light_value;
 }
 
 float getRandomTemperature()

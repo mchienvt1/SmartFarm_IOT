@@ -44,5 +44,5 @@ A real-time environmental monitoring and remote control system for smart farming
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/smart-farm-esp32.git
-   cd smart-farm-esp32
+   git clone https://github.com/mchienvt1/SmartFarm_IOT.git
+   cd SmartFarm_IOT
